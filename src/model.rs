@@ -361,7 +361,9 @@ impl ActivityInput {
             ));
         }
         if let ActivityDetails::Interview(interview) = &self.details {
-            if self.status == ActivityStatus::Completed && self.score.is_none() {
+            let migrated_legacy = self.metadata.contains_key("migrationSource");
+            if self.status == ActivityStatus::Completed && self.score.is_none() && !migrated_legacy
+            {
                 return Err(AppError::validation(
                     "a completed interview attempt must have a score",
                 ));
@@ -371,7 +373,7 @@ impl ActivityInput {
                     && interview.round_name.is_some()
                     && interview.focus_topic.is_some()
                     && interview.attempt_number.is_some();
-                if !complete {
+                if !complete && !migrated_legacy {
                     return Err(AppError::validation(
                         "challenge attempts require roundNumber, roundName, focusTopic, and attemptNumber",
                     ));

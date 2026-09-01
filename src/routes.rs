@@ -191,7 +191,7 @@ async fn delete_activity(
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttemptCreate {
     pub attempted_date: NaiveDate,
     #[serde(default)]
@@ -218,35 +218,6 @@ pub struct AttemptCreate {
     pub completed_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub strengths: Vec<String>,
-    pub feedback: Option<String>,
-    pub priority_next_drill: Option<String>,
-    pub application_id: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct AttemptUpdate {
-    pub attempted_date: Option<NaiveDate>,
-    pub attempt_source: Option<AttemptSource>,
-    pub external_attempt_id: Option<String>,
-    pub source_url: Option<String>,
-    pub challenge_id: Option<String>,
-    pub challenge_title: Option<String>,
-    pub round_number: Option<u16>,
-    pub round_name: Option<String>,
-    pub focus_topic: Option<String>,
-    pub question_bank_topic_slug: Option<String>,
-    pub attempt_number: Option<u32>,
-    pub company: Option<String>,
-    pub role: Option<String>,
-    pub level: Option<String>,
-    pub topic: Option<String>,
-    pub score: Option<f64>,
-    pub status: Option<LegacyAttemptStatus>,
-    pub notes: Option<String>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub completed_at: Option<DateTime<Utc>>,
-    pub strengths: Option<Vec<String>>,
     pub feedback: Option<String>,
     pub priority_next_drill: Option<String>,
     pub application_id: Option<String>,
@@ -467,7 +438,7 @@ async fn get_attempt(
 async fn update_attempt(
     State(state): State<AppState>,
     Path(id): Path<i64>,
-    Json(patch): Json<AttemptUpdate>,
+    Json(patch): Json<serde_json::Value>,
 ) -> Result<Json<AttemptResponse>, AppError> {
     let existing = state
         .repository
@@ -475,34 +446,21 @@ async fn update_attempt(
         .await?
         .ok_or_else(|| AppError::NotFound("Interview attempt not found".to_owned()))?;
     let current = activity_to_attempt(existing.clone())?;
-    let merged = AttemptCreate {
-        attempted_date: patch.attempted_date.unwrap_or(current.attempted_date),
-        attempt_source: patch.attempt_source.unwrap_or(current.attempt_source),
-        external_attempt_id: patch.external_attempt_id.or(current.external_attempt_id),
-        source_url: patch.source_url.or(current.source_url),
-        challenge_id: patch.challenge_id.or(current.challenge_id),
-        challenge_title: patch.challenge_title.or(current.challenge_title),
-        round_number: patch.round_number.or(current.round_number),
-        round_name: patch.round_name.or(current.round_name),
-        focus_topic: patch.focus_topic.or(current.focus_topic),
-        question_bank_topic_slug: patch
-            .question_bank_topic_slug
-            .or(current.question_bank_topic_slug),
-        attempt_number: patch.attempt_number.or(current.attempt_number),
-        company: patch.company.or(current.company),
-        role: patch.role.or(current.role),
-        level: patch.level.or(current.level),
-        topic: patch.topic.unwrap_or(current.topic),
-        score: patch.score.or(current.score),
-        status: patch.status.unwrap_or(current.status),
-        notes: patch.notes.or(current.notes),
-        started_at: patch.started_at.unwrap_or(current.started_at),
-        completed_at: patch.completed_at.or(current.completed_at),
-        strengths: patch.strengths.unwrap_or(current.strengths),
-        feedback: patch.feedback.or(current.feedback),
-        priority_next_drill: patch.priority_next_drill.or(current.priority_next_drill),
-        application_id: patch.application_id.or(current.application_id),
-    };
+    let patch = patch
+        .as_object()
+        .ok_or_else(|| AppError::validation("request body must be a JSON object"))?;
+    let mut merged = serde_json::to_value(current)
+        .map_err(|error| AppError::validation(format!("could not merge update: {error}")))?;
+    let target = merged
+        .as_object_mut()
+        .ok_or_else(|| AppError::validation("could not prepare update"))?;
+    target.remove("id");
+    target.remove("createdAt");
+    for (key, value) in patch {
+        target.insert(key.clone(), value.clone());
+    }
+    let merged: AttemptCreate =
+        serde_json::from_value(merged).map_err(|error| AppError::validation(error.to_string()))?;
     let input = attempt_to_input(merged);
     input.validate_domain()?;
     let updated = state
@@ -939,5 +897,48 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn update_can_explicitly_clear_nullable_fields() {
+        let repository = Arc::new(MemoryRepository::default());
+        let router = app(
+            AppState {
+                repository,
+                database_name: "test".to_owned(),
+            },
+            &[],
+        )
+        .unwrap();
+        let create = serde_json::json!({"attemptedDate":"2026-09-01","topic":"System Design","company":"Example Co","score":80,"status":"complete","startedAt":"2026-09-01T12:00:00Z"});
+        let created = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/attempts")
+                    .header("content-type", "application/json")
+                    .body(Body::from(create.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+        let updated = router
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/attempts/7")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"company":null}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(updated.into_body(), usize::MAX).await.unwrap())
+                .unwrap();
+        assert!(body["company"].is_null());
     }
 }

@@ -242,4 +242,34 @@ mod tests {
         assert_eq!(details.round_number, Some(2));
         assert_eq!(details.question_bank_topic_slug.as_deref(), Some("graphs"));
     }
+
+    #[test]
+    fn accepts_legacy_challenge_without_new_round_metadata() {
+        let started = Utc::now();
+        let row = PostgresAttempt {
+            id: 1,
+            attempted_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            attempt_source: "challenge".to_owned(),
+            external_attempt_id: None,
+            source_url: None,
+            challenge_id: None,
+            challenge_title: None,
+            round_number: None,
+            round_name: None,
+            focus_topic: None,
+            question_bank_topic_slug: None,
+            attempt_number: None,
+            company: None,
+            role: None,
+            level: None,
+            topic: "Legacy".to_owned(),
+            score: None,
+            status: "complete".to_owned(),
+            notes: None,
+            started_at: started,
+            completed_at: None,
+            created_at: started,
+        };
+        assert!(map_postgres_attempt(row).is_ok());
+    }
 }

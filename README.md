@@ -6,9 +6,14 @@ MongoDB migration of the public
 [`fastapi-pg-interview-tracker`](https://github.com/dbasak763/fastapi-pg-interview-tracker),
 while broadening interview attempts into one module of a general timeline.
 
-## What it tracks
+## Current scope
 
-One `activities` collection stores a shared envelope and one validated subtype:
+The production-complete module in this release is interview attempt tracking:
+numeric-compatible CRUD, filters, dashboards, MongoDB persistence, and a
+restart-safe PostgreSQL migration.
+
+The common `activities` foundation also defines validated schemas for future
+extensions:
 
 - LeetCode and Codeforces submissions
 - logic puzzles and AI/ML study topics
@@ -18,7 +23,9 @@ One `activities` collection stores a shared envelope and one validated subtype:
 - interviews, including sessions/rounds, focus topics, scores, strengths,
   feedback, and priority next drills
 
-Reusable entities live separately in `users`, `projects`, `papers`, `topics`,
+Those other activity kinds are foundation-only for now; their dedicated
+workflows and end-to-end product tests are intentionally deferred. Reusable
+entities live separately in `users`, `projects`, `papers`, `topics`,
 `experiments`, `companies`, `applications`, `people`, and `interviews`.
 Activities refer to them through `entityRefs`; there is deliberately no
 collection per activity subtype, Neo4j, Redis, or OpenSearch.
@@ -81,8 +88,8 @@ routes remain available with camelCase JSON and numeric compatibility IDs. See
 [API compatibility](docs/api-compatibility.md) for exact behavior and the few
 intentional changes.
 
-Representative payloads for every supported type are in
-[`examples/activities.json`](examples/activities.json).
+A representative compatibility payload is in
+[`examples/interview-attempt.json`](examples/interview-attempt.json).
 
 ## PostgreSQL migration
 
@@ -144,4 +151,3 @@ Unit tests cover domain and subtype validation, legacy mapping, canonical topic
 behavior, repository filter construction, and HTTP behavior. MongoDB-backed
 smoke checks can be run against the Compose stack. See
 [architecture and data flow](docs/architecture.md) for the boundaries.
-

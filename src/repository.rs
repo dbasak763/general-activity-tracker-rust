@@ -172,10 +172,10 @@ impl ActivityRepository for MongoActivityRepository {
             IndexModel::builder().keys(doc! { "userId": 1, "startedAt": -1 }).build(),
             IndexModel::builder().keys(doc! { "userId": 1, "type": 1, "startedAt": -1 }).build(),
             IndexModel::builder().keys(doc! { "tags": 1 }).build(),
-            IndexModel::builder().keys(doc! { "entityRefs": 1 }).build(),
+            IndexModel::builder().keys(doc! { "entityRefs.$**": 1 }).build(),
             IndexModel::builder().keys(doc! { "legacyAttemptId": 1 }).options(IndexOptions::builder().unique(true).sparse(true).name("ux_legacy_attempt_id".to_owned()).build()).build(),
             IndexModel::builder().keys(doc! { "details.externalAttemptId": 1 }).options(IndexOptions::builder().unique(true).sparse(true).name("ux_external_attempt_id".to_owned()).build()).build(),
-            IndexModel::builder().keys(doc! { "details.challengeId": 1, "details.roundNumber": 1, "details.focusTopic": 1, "details.attemptNumber": 1 }).options(IndexOptions::builder().unique(true).sparse(true).name("ux_challenge_attempt_sequence".to_owned()).build()).build(),
+            IndexModel::builder().keys(doc! { "details.challengeId": 1, "details.roundNumber": 1, "details.focusTopic": 1, "details.attemptNumber": 1 }).options(IndexOptions::builder().unique(true).partial_filter_expression(doc! { "details.kind": "interview", "details.attemptSource": "challenge", "details.challengeId": { "$exists": true }, "details.roundNumber": { "$exists": true }, "details.focusTopic": { "$exists": true }, "details.attemptNumber": { "$exists": true } }).name("ux_challenge_attempt_sequence".to_owned()).build()).build(),
             IndexModel::builder().keys(doc! { "details.paperId": 1 }).options(IndexOptions::builder().sparse(true).build()).build(),
             IndexModel::builder().keys(doc! { "details.contestId": 1, "details.problemIndex": 1 }).build(),
         ];

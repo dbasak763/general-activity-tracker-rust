@@ -6,10 +6,9 @@ RUN cargo build --locked --release --bin activity-tracker
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/activity-tracker /usr/local/bin/activity-tracker
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["activity-tracker"]
-

@@ -30,7 +30,9 @@ The common envelope contains `_id`, `userId`, `type`, `title`, `description`,
 `details` contains a required `kind` discriminator and validated fields for one
 of the ten supported types. The API rejects mismatched `type` and `details.kind`.
 This gives the timeline predictable fields while leaving `metadata` available
-for safe, forward-compatible annotations.
+for safe, forward-compatible annotations. Interview attempts are the
+end-to-end production module in the current release; the other subtype schemas
+are a foundation for future workflow-specific routes and tests.
 
 Reusable entity state belongs in separate collections. For example, a paper's
 bibliography belongs in `papers`; a reading activity points to it through
@@ -66,4 +68,3 @@ MongoDB activities -> counter seed -> representative read-back validation
 
 The process is safely restartable. It does not delete source rows, require
 private production access, or write to the original application repository.
-
