@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview Activity Tracker</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">General Activity Tracker in Rust</p>
+      <h1>Interview attempts</h1>
+      <p id="health" class="muted">Checking MongoDB…</p>
+    </header>
+
+    <section class="panel">
+      <h2>Record an attempt</h2>
+      <form id="attempt-form">
+        <label>Date <input name="attemptedDate" type="date" required></label>
+        <label>Topic <input name="topic" maxlength="200" required placeholder="System Design"></label>
+        <label>Company <input name="company" maxlength="150" placeholder="Example Co"></label>
+        <label>Role <input name="role" maxlength="150" placeholder="Backend Engineer"></label>
+        <label>Score <input name="score" type="number" min="0" max="100" step="0.01" required></label>
+        <label>Started <input name="startedAt" type="datetime-local" required></label>
+        <label class="wide">Notes <textarea name="notes" rows="2"></textarea></label>
+        <button type="submit">Save attempt</button>
+        <p id="form-status" class="muted" role="status"></p>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div><h2>Timeline</h2><p id="summary" class="muted"></p></div>
+        <label>Topic <select id="topic-filter"><option value="">All topics</option></select></label>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Topic</th><th>Company / role</th><th>Status</th><th>Score</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="attempt-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/static/dashboard.js" defer></script>
+</body>
+</html>

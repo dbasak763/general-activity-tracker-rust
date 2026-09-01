@@ -1,0 +1,22 @@
+{
+  "attemptedDate": "2026-09-01",
+  "attemptSource": "challenge",
+  "challengeId": "system-design-2026",
+  "challengeTitle": "Distributed activity feed",
+  "roundNumber": 2,
+  "roundName": "System design",
+  "focusTopic": "Data modeling and consistency",
+  "attemptNumber": 1,
+  "company": "Example Co",
+  "role": "Senior Backend Engineer",
+  "level": "Senior",
+  "topic": "System Design",
+  "score": 86.5,
+  "status": "complete",
+  "notes": "Clarify fan-out tradeoffs earlier.",
+  "startedAt": "2026-09-01T17:00:00Z",
+  "completedAt": "2026-09-01T17:50:00Z",
+  "strengths": ["clear API boundaries", "capacity estimates"],
+  "feedback": "Strong data model; discuss failure recovery sooner.",
+  "priorityNextDrill": "Multi-region recovery"
+}
