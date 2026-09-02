@@ -29,10 +29,10 @@ Intentional changes:
 - Python/LangGraph and third-party LLM calls are not included. The former chat
   endpoint returns bounded, verified database counts. This keeps normal CRUD
   entirely in Rust and avoids inventing an internal AI service.
-- FastAPI's generated Swagger UI is not reproduced. The Rust routes and example
-  payloads are documented in this repository.
+- OpenAPI JSON and Swagger UI are provided at `/api-doc/openapi.json` and
+  `/docs/`. Swagger's `POST /api/attempts` operation includes a working manual
+  entry example.
 - Errors add a stable machine-readable `code` alongside the compatible
   `detail` field.
 - A new `/api/activities` API exposes the broader product model, and
   `/health/live` plus `/health/ready` split process and dependency health.
-

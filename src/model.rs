@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, NaiveDate, Utc};
 use mongodb::bson::{Bson, Document};
 use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
 use crate::error::AppError;
@@ -183,7 +184,10 @@ pub struct NetworkingInteractionDetails {
     pub person_name: String,
     pub interaction_type: InteractionType,
     pub organization: Option<String>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional")]
+    #[serde(
+        default,
+        with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
+    )]
     pub follow_up_at: Option<DateTime<Utc>>,
 }
 
@@ -235,7 +239,7 @@ pub struct InterviewDetails {
     pub application_id: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptSource {
     #[default]
@@ -245,7 +249,7 @@ pub enum AttemptSource {
     QuestionBank,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum LegacyAttemptStatus {
     Incomplete,
@@ -318,11 +322,20 @@ pub struct ActivityInput {
     pub status: ActivityStatus,
     #[serde(default)]
     pub priority: Priority,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional")]
+    #[serde(
+        default,
+        with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
+    )]
     pub planned_at: Option<DateTime<Utc>>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional")]
+    #[serde(
+        default,
+        with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
+    )]
     pub started_at: Option<DateTime<Utc>>,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional")]
+    #[serde(
+        default,
+        with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
+    )]
     pub completed_at: Option<DateTime<Utc>>,
     #[validate(range(min = 0))]
     pub duration_minutes: Option<u32>,
@@ -361,7 +374,8 @@ impl ActivityInput {
             ));
         }
         if let ActivityDetails::Interview(interview) = &self.details {
-            let migrated_legacy = self.metadata.contains_key("migrationSource");
+            let migrated_legacy = self.metadata.contains_key("migrationSource")
+                || self.metadata.contains_key("importSource");
             if self.status == ActivityStatus::Completed && self.score.is_none() && !migrated_legacy
             {
                 return Err(AppError::validation(
@@ -427,8 +441,9 @@ pub struct ActivityFilter {
     pub offset: u64,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, IntoParams)]
 #[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
 pub struct AttemptFilter {
     pub company: Option<String>,
     pub role: Option<String>,
@@ -564,5 +579,25 @@ mod tests {
         input.started_at = Some(Utc::now());
         input.completed_at = Some(Utc::now() - chrono::Duration::hours(1));
         assert!(input.validate_domain().is_err());
+    }
+
+    #[test]
+    fn optional_activity_timestamps_can_be_omitted_from_json() {
+        let input: ActivityInput = serde_json::from_value(serde_json::json!({
+            "userId": "user-1",
+            "type": "project_milestone",
+            "title": "Ship live verification",
+            "details": {
+                "kind": "project_milestone",
+                "milestone": "Live MongoDB smoke test passed",
+                "completionPercent": 100
+            }
+        }))
+        .unwrap();
+
+        assert!(input.planned_at.is_none());
+        assert!(input.started_at.is_none());
+        assert!(input.completed_at.is_none());
+        input.validate_domain().unwrap();
     }
 }

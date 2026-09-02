@@ -18,9 +18,11 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
+use utoipa::{OpenApi, ToSchema};
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-    error::AppError,
+    error::{AppError, ErrorBody},
     model::{
         Activity, ActivityDetails, ActivityFilter, ActivityInput, ActivityStatus, AttemptFilter,
         AttemptSource, InterviewDetails, LegacyAttemptStatus, Priority,
@@ -33,6 +35,33 @@ pub struct AppState {
     pub repository: Arc<dyn ActivityRepository>,
     pub database_name: String,
 }
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        liveness,
+        readiness,
+        database_health,
+        create_attempt,
+        list_attempts,
+        count_attempts,
+        latest_attempt,
+        get_attempt,
+        update_attempt,
+        delete_attempt
+    ),
+    components(schemas(AttemptCreate, AttemptResponse, CountResponse, HealthResponse, ErrorBody)),
+    tags(
+        (name = "Health", description = "Process and MongoDB dependency health"),
+        (name = "Interview attempts", description = "FastAPI-compatible interview attempt operations")
+    ),
+    info(
+        title = "General Activity Tracker in Rust",
+        version = "0.1.0",
+        description = "Interview attempt CRUD backed by MongoDB. Use POST /api/attempts from Swagger UI for manual score entry."
+    )
+)]
+pub struct ApiDoc;
 
 pub fn app(state: AppState, allowed_origins: &[String]) -> Result<Router, AppError> {
     let origins = allowed_origins
@@ -55,6 +84,7 @@ pub fn app(state: AppState, allowed_origins: &[String]) -> Result<Router, AppErr
         .allow_headers([http::header::CONTENT_TYPE, http::header::AUTHORIZATION]);
 
     Ok(Router::new()
+        .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .route("/", get(root))
         .route_service("/dashboard", ServeFile::new("static/dashboard.html"))
         .nest_service("/static", ServeDir::new("static"))
@@ -99,24 +129,65 @@ pub fn app(state: AppState, allowed_origins: &[String]) -> Result<Router, AppErr
 async fn root() -> Json<serde_json::Value> {
     Json(serde_json::json!({"message": "General Activity Tracker in Rust is running"}))
 }
-async fn liveness() -> Json<serde_json::Value> {
-    Json(serde_json::json!({"status": "healthy"}))
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthResponse {
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    database: Option<String>,
 }
 
-async fn readiness(State(state): State<AppState>) -> Result<Json<serde_json::Value>, AppError> {
-    state.repository.ping().await?;
-    Ok(Json(
-        serde_json::json!({"status": "ready", "database": state.database_name}),
-    ))
+#[utoipa::path(
+    get,
+    path = "/health/live",
+    tag = "Health",
+    responses((status = 200, description = "Process is alive", body = HealthResponse, example = json!({"status":"healthy"})))
+)]
+async fn liveness() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "healthy".to_owned(),
+        database: None,
+    })
 }
 
-async fn database_health(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    state.repository.ping().await?;
-    Ok(Json(
-        serde_json::json!({"status": "healthy", "database": state.database_name}),
-    ))
+#[utoipa::path(
+    get,
+    path = "/health/ready",
+    tag = "Health",
+    responses(
+        (status = 200, description = "MongoDB is reachable", body = HealthResponse),
+        (status = 503, description = "MongoDB is unavailable", body = ErrorBody)
+    )
+)]
+async fn readiness(State(state): State<AppState>) -> Result<Json<HealthResponse>, AppError> {
+    state.repository.ping().await.map_err(|error| {
+        tracing::warn!(error = %error, "readiness ping failed");
+        AppError::Unavailable("MongoDB is unavailable".to_owned())
+    })?;
+    Ok(Json(HealthResponse {
+        status: "ready".to_owned(),
+        database: Some(state.database_name),
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/database-health",
+    tag = "Health",
+    responses(
+        (status = 200, description = "Compatibility MongoDB health response", body = HealthResponse),
+        (status = 503, description = "MongoDB is unavailable", body = ErrorBody)
+    )
+)]
+async fn database_health(State(state): State<AppState>) -> Result<Json<HealthResponse>, AppError> {
+    state.repository.ping().await.map_err(|error| {
+        tracing::warn!(error = %error, "database health ping failed");
+        AppError::Unavailable("MongoDB is unavailable".to_owned())
+    })?;
+    Ok(Json(HealthResponse {
+        status: "healthy".to_owned(),
+        database: Some(state.database_name),
+    }))
 }
 
 async fn create_activity(
@@ -138,8 +209,8 @@ async fn list_activities(
     Ok(Json(state.repository.list(&filter).await?))
 }
 
-#[derive(Serialize)]
-struct CountResponse {
+#[derive(Serialize, ToSchema)]
+pub struct CountResponse {
     count: u64,
 }
 async fn count_activities(
@@ -190,12 +261,14 @@ async fn delete_activity(
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttemptCreate {
+    #[schema(example = "2026-09-01")]
     pub attempted_date: NaiveDate,
     #[serde(default)]
     pub attempt_source: AttemptSource,
+    #[schema(example = "interviewstack-001")]
     pub external_attempt_id: Option<String>,
     pub source_url: Option<String>,
     pub challenge_id: Option<String>,
@@ -205,13 +278,18 @@ pub struct AttemptCreate {
     pub focus_topic: Option<String>,
     pub question_bank_topic_slug: Option<String>,
     pub attempt_number: Option<u32>,
+    #[schema(example = "Example Co")]
     pub company: Option<String>,
+    #[schema(example = "Senior Backend Engineer")]
     pub role: Option<String>,
     pub level: Option<String>,
+    #[schema(min_length = 1, max_length = 200, example = "System Design")]
     pub topic: String,
+    #[schema(minimum = 0, maximum = 100, example = 86.5)]
     pub score: Option<f64>,
     #[serde(default)]
     pub status: LegacyAttemptStatus,
+    #[schema(example = "Clarify recovery goals earlier.")]
     pub notes: Option<String>,
     #[serde(default = "Utc::now")]
     pub started_at: DateTime<Utc>,
@@ -223,7 +301,7 @@ pub struct AttemptCreate {
     pub application_id: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AttemptResponse {
     pub id: i64,
@@ -365,6 +443,32 @@ fn activity_to_attempt(activity: Activity) -> Result<AttemptResponse, AppError> 
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/attempts",
+    tag = "Interview attempts",
+    request_body(
+        content = AttemptCreate,
+        description = "Interview attempt. Completed attempts require a 0-100 score. Challenge attempts additionally require roundNumber, roundName, focusTopic, and attemptNumber.",
+        example = json!({
+            "attemptedDate": "2026-09-01",
+            "attemptSource": "manual",
+            "company": "Example Co",
+            "role": "Senior Backend Engineer",
+            "topic": "System Design",
+            "score": 86.5,
+            "status": "complete",
+            "notes": "Clarify recovery goals earlier.",
+            "startedAt": "2026-09-01T17:00:00Z",
+            "completedAt": "2026-09-01T17:50:00Z"
+        })
+    ),
+    responses(
+        (status = 201, description = "Attempt persisted in MongoDB", body = AttemptResponse),
+        (status = 422, description = "Payload or domain validation failed", body = ErrorBody),
+        (status = 500, description = "MongoDB operation failed", body = ErrorBody)
+    )
+)]
 async fn create_attempt(
     State(state): State<AppState>,
     Json(payload): Json<AttemptCreate>,
@@ -379,6 +483,16 @@ async fn create_attempt(
     Ok((StatusCode::CREATED, Json(activity_to_attempt(activity)?)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attempts",
+    tag = "Interview attempts",
+    params(AttemptFilter),
+    responses(
+        (status = 200, description = "Filtered attempts, newest first", body = [AttemptResponse]),
+        (status = 422, description = "Invalid filter or pagination", body = ErrorBody)
+    )
+)]
 async fn list_attempts(
     State(state): State<AppState>,
     Query(filter): Query<AttemptFilter>,
@@ -393,6 +507,13 @@ async fn list_attempts(
     ))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attempts/count",
+    tag = "Interview attempts",
+    params(AttemptFilter),
+    responses((status = 200, description = "Exact unpaginated count", body = CountResponse))
+)]
 async fn count_attempts(
     State(state): State<AppState>,
     Query(mut filter): Query<AttemptFilter>,
@@ -404,6 +525,13 @@ async fn count_attempts(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attempts/latest",
+    tag = "Interview attempts",
+    params(AttemptFilter),
+    responses((status = 200, description = "Newest matching attempt or null", body = Option<AttemptResponse>))
+)]
 async fn latest_attempt(
     State(state): State<AppState>,
     Query(mut filter): Query<AttemptFilter>,
@@ -423,6 +551,16 @@ async fn latest_attempt(
     ))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attempts/{id}",
+    tag = "Interview attempts",
+    params(("id" = i64, Path, minimum = 1, description = "Numeric compatibility ID")),
+    responses(
+        (status = 200, description = "Attempt", body = AttemptResponse),
+        (status = 404, description = "Attempt does not exist", body = ErrorBody)
+    )
+)]
 async fn get_attempt(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -435,6 +573,18 @@ async fn get_attempt(
     Ok(Json(activity_to_attempt(value)?))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/attempts/{id}",
+    tag = "Interview attempts",
+    params(("id" = i64, Path, minimum = 1, description = "Numeric compatibility ID")),
+    request_body(content = Object, description = "Partial camelCase attempt fields; explicit null clears nullable fields"),
+    responses(
+        (status = 200, description = "Updated attempt", body = AttemptResponse),
+        (status = 404, description = "Attempt does not exist", body = ErrorBody),
+        (status = 422, description = "Merged attempt is invalid", body = ErrorBody)
+    )
+)]
 async fn update_attempt(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -471,6 +621,16 @@ async fn update_attempt(
     Ok(Json(activity_to_attempt(updated)?))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/attempts/{id}",
+    tag = "Interview attempts",
+    params(("id" = i64, Path, minimum = 1, description = "Numeric compatibility ID")),
+    responses(
+        (status = 204, description = "Attempt deleted"),
+        (status = 404, description = "Attempt does not exist", body = ErrorBody)
+    )
+)]
 async fn delete_attempt(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -940,5 +1100,83 @@ mod tests {
             serde_json::from_slice(&to_bytes(updated.into_body(), usize::MAX).await.unwrap())
                 .unwrap();
         assert!(body["company"].is_null());
+    }
+
+    #[tokio::test]
+    async fn openapi_documents_manual_attempt_and_health_routes() {
+        let router = app(
+            AppState {
+                repository: Arc::new(MemoryRepository::default()),
+                database_name: "test".to_owned(),
+            },
+            &[],
+        )
+        .unwrap();
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api-doc/openapi.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let document: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap())
+                .unwrap();
+        assert!(document["paths"]["/api/attempts"]["post"]["requestBody"].is_object());
+        assert_eq!(
+            document["paths"]["/api/attempts"]["post"]["responses"]["201"]["description"],
+            "Attempt persisted in MongoDB"
+        );
+        assert!(document["paths"]["/health/ready"].is_object());
+        assert!(document["components"]["schemas"]["AttemptCreate"].is_object());
+        let docs = router
+            .oneshot(
+                Request::builder()
+                    .uri("/docs/")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(docs.status(), StatusCode::OK);
+        let html = String::from_utf8(
+            to_bytes(docs.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(html.contains("Swagger UI"));
+    }
+
+    #[test]
+    fn frontend_contract_contains_manual_create_filter_and_delete_flow() {
+        let html = include_str!("../static/dashboard.html");
+        let script = include_str!("../static/dashboard.js");
+        for field in [
+            "attemptedDate",
+            "topic",
+            "company",
+            "role",
+            "attemptSource",
+            "status",
+            "score",
+            "startedAt",
+        ] {
+            assert!(
+                html.contains(&format!("name=\"{field}\"")),
+                "missing form field {field}"
+            );
+        }
+        assert!(script.contains("/api/attempts"));
+        assert!(script.contains("method: \"POST\""));
+        assert!(script.contains("method: \"DELETE\""));
+        assert!(script.contains("query.set(\"topic\""));
+        assert!(script.contains("Saved and persisted in MongoDB."));
+        assert!(script.contains("catch (error)"));
     }
 }

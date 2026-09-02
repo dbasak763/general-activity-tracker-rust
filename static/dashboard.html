@@ -21,7 +21,19 @@
         <label>Topic <input name="topic" maxlength="200" required placeholder="System Design"></label>
         <label>Company <input name="company" maxlength="150" placeholder="Example Co"></label>
         <label>Role <input name="role" maxlength="150" placeholder="Backend Engineer"></label>
-        <label>Score <input name="score" type="number" min="0" max="100" step="0.01" required></label>
+        <label>Source
+          <select name="attemptSource">
+            <option value="manual">Manual</option>
+            <option value="casual">Casual</option>
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="complete">Complete</option>
+            <option value="incomplete">Incomplete</option>
+          </select>
+        </label>
+        <label>Score <input name="score" type="number" min="0" max="100" step="0.01" placeholder="Required when complete"></label>
         <label>Started <input name="startedAt" type="datetime-local" required></label>
         <label class="wide">Notes <textarea name="notes" rows="2"></textarea></label>
         <button type="submit">Save attempt</button>

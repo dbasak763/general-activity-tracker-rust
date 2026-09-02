@@ -173,13 +173,19 @@ impl ActivityRepository for MongoActivityRepository {
             IndexModel::builder().keys(doc! { "userId": 1, "type": 1, "startedAt": -1 }).build(),
             IndexModel::builder().keys(doc! { "tags": 1 }).build(),
             IndexModel::builder().keys(doc! { "entityRefs.$**": 1 }).build(),
-            IndexModel::builder().keys(doc! { "legacyAttemptId": 1 }).options(IndexOptions::builder().unique(true).sparse(true).name("ux_legacy_attempt_id".to_owned()).build()).build(),
-            IndexModel::builder().keys(doc! { "details.externalAttemptId": 1 }).options(IndexOptions::builder().unique(true).sparse(true).name("ux_external_attempt_id".to_owned()).build()).build(),
-            IndexModel::builder().keys(doc! { "details.challengeId": 1, "details.roundNumber": 1, "details.focusTopic": 1, "details.attemptNumber": 1 }).options(IndexOptions::builder().unique(true).partial_filter_expression(doc! { "details.kind": "interview", "details.attemptSource": "challenge", "details.challengeId": { "$exists": true }, "details.roundNumber": { "$exists": true }, "details.focusTopic": { "$exists": true }, "details.attemptNumber": { "$exists": true } }).name("ux_challenge_attempt_sequence".to_owned()).build()).build(),
+            IndexModel::builder().keys(doc! { "legacyAttemptId": 1 }).options(IndexOptions::builder().unique(true).partial_filter_expression(doc! { "legacyAttemptId": { "$type": "number" } }).name("ux_legacy_attempt_id_present".to_owned()).build()).build(),
+            IndexModel::builder().keys(doc! { "details.externalAttemptId": 1 }).options(IndexOptions::builder().unique(true).partial_filter_expression(doc! { "details.externalAttemptId": { "$type": "string" } }).name("ux_external_attempt_id_present".to_owned()).build()).build(),
+            IndexModel::builder().keys(doc! { "details.challengeId": 1, "details.roundNumber": 1, "details.focusTopic": 1, "details.attemptNumber": 1 }).options(IndexOptions::builder().unique(true).partial_filter_expression(doc! { "details.kind": "interview", "details.attemptSource": "challenge", "details.challengeId": { "$type": "string" }, "details.roundNumber": { "$type": "number" }, "details.focusTopic": { "$type": "string" }, "details.attemptNumber": { "$type": "number" } }).name("ux_challenge_attempt_sequence".to_owned()).build()).build(),
             IndexModel::builder().keys(doc! { "details.paperId": 1 }).options(IndexOptions::builder().sparse(true).build()).build(),
             IndexModel::builder().keys(doc! { "details.contestId": 1, "details.problemIndex": 1 }).build(),
         ];
         self.activities.create_indexes(indexes).await?;
+        let index_names = self.activities.list_index_names().await?;
+        for obsolete_name in ["ux_legacy_attempt_id", "ux_external_attempt_id"] {
+            if index_names.iter().any(|name| name == obsolete_name) {
+                self.activities.drop_index(obsolete_name).await?;
+            }
+        }
         for name in [
             "users",
             "projects",
@@ -278,7 +284,7 @@ impl ActivityRepository for MongoActivityRepository {
         let cursor = self
             .activities
             .find(Self::attempt_filter(filter)?)
-            .sort(doc! { "startedAt": -1, "legacyAttemptId": -1 })
+            .sort(doc! { "details.attemptedDate": -1, "startedAt": -1, "legacyAttemptId": -1 })
             .skip(filter.offset)
             .limit(filter.limit as i64)
             .await?;
@@ -369,5 +375,37 @@ mod tests {
         let range = query.get_document("details.attemptedDate").unwrap();
         assert_eq!(range.get_str("$gte").unwrap(), "2026-01-01");
         assert_eq!(range.get_str("$lte").unwrap(), "2026-12-31");
+    }
+
+    #[test]
+    fn challenge_uniqueness_index_excludes_null_identity_fields() {
+        let options = IndexOptions::builder()
+            .unique(true)
+            .partial_filter_expression(doc! {
+                "details.kind": "interview",
+                "details.attemptSource": "challenge",
+                "details.challengeId": { "$type": "string" },
+                "details.roundNumber": { "$type": "number" },
+                "details.focusTopic": { "$type": "string" },
+                "details.attemptNumber": { "$type": "number" }
+            })
+            .build();
+        let filter = options.partial_filter_expression.unwrap();
+        assert_eq!(
+            filter
+                .get_document("details.challengeId")
+                .unwrap()
+                .get_str("$type")
+                .unwrap(),
+            "string"
+        );
+        assert_eq!(
+            filter
+                .get_document("details.roundNumber")
+                .unwrap()
+                .get_str("$type")
+                .unwrap(),
+            "number"
+        );
     }
 }

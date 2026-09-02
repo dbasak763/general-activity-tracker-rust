@@ -68,3 +68,17 @@ MongoDB activities -> counter seed -> representative read-back validation
 
 The process is safely restartable. It does not delete source rows, require
 private production access, or write to the original application repository.
+
+## REST and GraphQL
+
+REST should remain the write plane. Attempt creation, replacement, and deletion
+are resource-shaped operations with clear HTTP status codes, simple curl and
+Swagger workflows, and compatibility requirements inherited from the original
+service. GraphQL for these writes would add schema, resolver, and authorization
+machinery without solving a current product problem.
+
+GraphQL can be considered later as a read-only aggregation layer if clients
+need to compose timeline, company, application, interview, project, and
+analytics views in one request. Add it only after concrete clients demonstrate
+excessive REST round trips or brittle view-specific APIs. MongoDB remains the
+source of truth either way.

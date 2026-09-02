@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Serialize;
 use thiserror::Error;
+use utoipa::ToSchema;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -16,6 +17,8 @@ pub enum AppError {
     NotFound(String),
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Unavailable(String),
     #[error("database operation failed")]
     Database(#[from] mongodb::error::Error),
     #[error("serialization failed: {0}")]
@@ -26,10 +29,10 @@ pub enum AppError {
     MigrationSource(#[from] sqlx::Error),
 }
 
-#[derive(Serialize)]
-struct ErrorBody {
-    detail: String,
-    code: &'static str,
+#[derive(Serialize, ToSchema)]
+pub struct ErrorBody {
+    pub detail: String,
+    pub code: &'static str,
 }
 
 impl AppError {
@@ -60,6 +63,11 @@ impl IntoResponse for AppError {
             ),
             Self::NotFound(message) => (StatusCode::NOT_FOUND, "not_found", message),
             Self::Conflict(message) => (StatusCode::CONFLICT, "conflict", message),
+            Self::Unavailable(message) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "service_unavailable",
+                message,
+            ),
             Self::Database(error) => {
                 tracing::error!(error = %error, "database operation failed");
                 (

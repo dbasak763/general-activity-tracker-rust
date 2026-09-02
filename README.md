@@ -88,6 +88,11 @@ routes remain available with camelCase JSON and numeric compatibility IDs. See
 [API compatibility](docs/api-compatibility.md) for exact behavior and the few
 intentional changes.
 
+Interactive API documentation is available at `/docs/`, with its OpenAPI JSON
+at `/api-doc/openapi.json`. The browser dashboard at `/dashboard` supports
+manual and casual interview entries, complete/incomplete status, filtering,
+refresh, and deletion.
+
 A representative compatibility payload is in
 [`examples/interview-attempt.json`](examples/interview-attempt.json).
 
@@ -117,6 +122,20 @@ largest imported ID, and reads back representative first/middle/last records.
 The JSON report distinguishes inserts from updates and lists the source/mapped
 count. Full field mapping and recovery steps are in
 [the migration guide](docs/postgres-migration.md).
+
+## InterviewStack NDJSON import
+
+Validate the checked-in, non-secret 68-record fixture without MongoDB:
+
+```bash
+cargo run --locked --bin import-interviewstack -- \
+  --input fixtures/interviewstack_attempts.ndjson --dry-run
+```
+
+With `MONGODB_URI` configured, omit `--dry-run` to import. Stable source keys
+make reruns idempotent: an unchanged second run skips all 68 records. See the
+[InterviewStack import guide](docs/interviewstack-import.md) for exact mapping,
+verification, and recovery details.
 
 ## MongoDB Compass
 
@@ -149,5 +168,7 @@ cargo build --locked --release
 
 Unit tests cover domain and subtype validation, legacy mapping, canonical topic
 behavior, repository filter construction, and HTTP behavior. MongoDB-backed
-smoke checks can be run against the Compose stack. See
-[architecture and data flow](docs/architecture.md) for the boundaries.
+smoke checks can be run against the Compose stack. See [testing](docs/testing.md)
+for the complete sequence, [stack inventory](docs/stack.md) for the exact
+technologies, and [architecture and data flow](docs/architecture.md) for the
+boundaries.

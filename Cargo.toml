@@ -17,6 +17,10 @@ path = "src/main.rs"
 name = "migrate-postgres"
 path = "src/bin/migrate_postgres.rs"
 
+[[bin]]
+name = "import-interviewstack"
+path = "src/bin/import_interviewstack.rs"
+
 [dependencies]
 async-trait = "0.1"
 axum = { version = "0.8", features = ["macros"] }
@@ -38,6 +42,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 url = "2"
 uuid = { version = "1", features = ["serde", "v4"] }
 validator = { version = "0.20", features = ["derive"] }
+utoipa = { version = "5.5.0", features = ["axum_extras", "chrono"] }
+utoipa-swagger-ui = { version = "9.0.2", default-features = false, features = ["axum", "vendored"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

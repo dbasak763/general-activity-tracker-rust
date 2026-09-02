@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod interviewstack;
 pub mod migration;
 pub mod model;
 pub mod repository;
