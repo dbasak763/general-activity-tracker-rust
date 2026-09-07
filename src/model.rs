@@ -8,7 +8,14 @@ use validator::Validate;
 
 use crate::error::AppError;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+/// JSON representation used by the BSON timestamp serializers on activity routes.
+#[derive(Serialize, ToSchema)]
+pub struct ExtendedJsonDateTime {
+    #[serde(rename = "$date")]
+    pub date: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ActivityType {
     LeetCode,
@@ -23,7 +30,7 @@ pub enum ActivityType {
     Interview,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ActivityStatus {
     Planned,
@@ -35,7 +42,7 @@ pub enum ActivityStatus {
     Skipped,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Priority {
     Low,
@@ -45,7 +52,7 @@ pub enum Priority {
     Critical,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LeetCodeDetails {
     #[validate(length(min = 1, max = 200))]
@@ -63,7 +70,7 @@ pub struct LeetCodeDetails {
     pub techniques: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProblemDifficulty {
     Easy,
@@ -71,7 +78,7 @@ pub enum ProblemDifficulty {
     Hard,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CodeforcesDetails {
     #[validate(length(min = 1, max = 60))]
@@ -86,7 +93,7 @@ pub struct CodeforcesDetails {
     pub tags: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LogicPuzzleDetails {
     #[validate(length(min = 1, max = 120))]
@@ -98,7 +105,7 @@ pub struct LogicPuzzleDetails {
     pub solution_summary: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AiMlTopicDetails {
     #[validate(length(min = 1, max = 200))]
@@ -111,7 +118,7 @@ pub struct AiMlTopicDetails {
     pub concepts: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResearchPaperDetails {
     #[validate(length(min = 1, max = 500))]
@@ -126,7 +133,7 @@ pub struct ResearchPaperDetails {
     pub key_takeaways: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ModelExperimentDetails {
     #[validate(length(min = 1, max = 200))]
@@ -141,7 +148,7 @@ pub struct ModelExperimentDetails {
     pub parameters: BTreeMap<String, serde_json::Value>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProjectMilestoneDetails {
     pub project_id: Option<String>,
@@ -152,7 +159,7 @@ pub struct ProjectMilestoneDetails {
     pub release: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct JobApplicationDetails {
     pub application_id: Option<String>,
@@ -164,7 +171,7 @@ pub struct JobApplicationDetails {
     pub location: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ApplicationStage {
     Saved,
@@ -176,7 +183,7 @@ pub enum ApplicationStage {
     Withdrawn,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NetworkingInteractionDetails {
     pub person_id: Option<String>,
@@ -188,10 +195,11 @@ pub struct NetworkingInteractionDetails {
         default,
         with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
     )]
+    #[schema(value_type = Option<ExtendedJsonDateTime>)]
     pub follow_up_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum InteractionType {
     Message,
@@ -202,7 +210,7 @@ pub enum InteractionType {
     FollowUp,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InterviewDetails {
     #[validate(length(min = 1, max = 200))]
@@ -258,7 +266,7 @@ pub enum LegacyAttemptStatus {
     Invalidated,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ActivityDetails {
     LeetCode(LeetCodeDetails),
@@ -305,7 +313,7 @@ impl ActivityDetails {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityInput {
     #[validate(length(min = 1, max = 120))]
@@ -326,16 +334,19 @@ pub struct ActivityInput {
         default,
         with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
     )]
+    #[schema(value_type = Option<ExtendedJsonDateTime>)]
     pub planned_at: Option<DateTime<Utc>>,
     #[serde(
         default,
         with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
     )]
+    #[schema(value_type = Option<ExtendedJsonDateTime>)]
     pub started_at: Option<DateTime<Utc>>,
     #[serde(
         default,
         with = "bson::serde_helpers::chrono_datetime_as_bson_datetime_optional"
     )]
+    #[schema(value_type = Option<ExtendedJsonDateTime>)]
     pub completed_at: Option<DateTime<Utc>>,
     #[validate(range(min = 0))]
     pub duration_minutes: Option<u32>,
@@ -353,6 +364,7 @@ pub struct ActivityInput {
     pub entity_refs: BTreeMap<String, String>,
     pub details: ActivityDetails,
     #[serde(default)]
+    #[schema(value_type = Object)]
     pub metadata: Document,
 }
 
@@ -410,7 +422,7 @@ impl ActivityInput {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Activity {
     #[serde(rename = "_id")]
@@ -419,13 +431,16 @@ pub struct Activity {
     pub input: ActivityInput,
     pub legacy_attempt_id: Option<i64>,
     #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[schema(value_type = ExtendedJsonDateTime)]
     pub created_at: DateTime<Utc>,
     #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[schema(value_type = ExtendedJsonDateTime)]
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, ToSchema, IntoParams)]
 #[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
 pub struct ActivityFilter {
     pub user_id: Option<String>,
     #[serde(rename = "type")]

@@ -8,12 +8,10 @@ while broadening interview attempts into one module of a general timeline.
 
 ## Current scope
 
-The production-complete module in this release is interview attempt tracking:
-numeric-compatible CRUD, filters, dashboards, MongoDB persistence, and a
-restart-safe PostgreSQL migration.
-
-The common `activities` foundation also defines validated schemas for future
-extensions:
+All ten activity types support manual entry, validated MongoDB persistence,
+inspection, filtering, and deletion in the dashboard, plus documented REST CRUD.
+Interview tracking retains numeric-compatible routes and the restart-safe
+PostgreSQL migration. Supported activities:
 
 - LeetCode and Codeforces submissions
 - logic puzzles and AI/ML study topics
@@ -23,9 +21,7 @@ extensions:
 - interviews, including sessions/rounds, focus topics, scores, strengths,
   feedback, and priority next drills
 
-Those other activity kinds are foundation-only for now; their dedicated
-workflows and end-to-end product tests are intentionally deferred. Reusable
-entities live separately in `users`, `projects`, `papers`, `topics`,
+Reusable entities can be represented separately in `users`, `projects`, `papers`, `topics`,
 `experiments`, `companies`, `applications`, `people`, and `interviews`.
 Activities refer to them through `entityRefs`; there is deliberately no
 collection per activity subtype, Neo4j, Redis, or OpenSearch.
@@ -90,8 +86,8 @@ intentional changes.
 
 Interactive API documentation is available at `/docs/`, with its OpenAPI JSON
 at `/api-doc/openapi.json`. The browser dashboard at `/dashboard` supports
-manual and casual interview entries, complete/incomplete status, filtering,
-refresh, and deletion.
+all ten activity types, type-specific forms, optional scores, shared fields,
+JSON metadata, filtering, refresh, record inspection, and deletion.
 
 A representative compatibility payload is in
 [`examples/interview-attempt.json`](examples/interview-attempt.json).
@@ -172,3 +168,36 @@ smoke checks can be run against the Compose stack. See [testing](docs/testing.md
 for the complete sequence, [stack inventory](docs/stack.md) for the exact
 technologies, and [architecture and data flow](docs/architecture.md) for the
 boundaries.
+
+
+## Record all activity types
+
+Open `/dashboard` and choose **Activity type**. Interview entry retains the original
+manual/casual form. The other forms cover LeetCode, Codeforces, logic puzzles,
+AI/ML topics, research papers, model experiments, project milestones, job
+applications, and networking interactions. Each save creates a separate activity,
+so repeated practice or reading sessions can be recorded individually.
+
+Use the shared score, rating, time, status, priority, tags, source URL, notes, and
+feedback fields alongside the selected activity's details. Scores are optional for
+non-interview activities. Additional JSON metadata can hold custom fields such as
+hypotheses, blockers, deadlines, or solved-independently flags. Experiment metrics
+must be a JSON object of numeric values; parameters can contain arbitrary JSON.
+
+The timeline displays all activity types with a type filter, total count, full
+record inspection, and deletion. It shows up to 500 records ordered by start time;
+the REST API exposes `limit` and `offset` for larger histories.
+
+For raw schema entry, open `/docs/` → **Activities** → **POST /api/activities** →
+**Try it out**. Choose one of the ten examples, edit it, and execute. Each activity
+uses a matching `type` and `details.kind`. All detail variants are documented in
+OpenAPI, including GET, count, PUT (full replacement), and DELETE operations.
+`examples/activity-attempts.json` contains the same ten representative payloads.
+Activity timestamps use MongoDB Extended JSON, for example
+`"startedAt": {"$date": "2026-09-07T12:00:00Z"}`. The legacy `/api/attempts`
+endpoint continues to accept its original ISO timestamp strings.
+
+The VS Code startup script rebuilds the Docker image and replaces an outdated
+application container while keeping the native MongoDB data directory intact.
+Docker Desktop must be running. Stop any separately launched native server on
+port 8080 before running the script.

@@ -10,7 +10,7 @@
 | Observability | tracing, tracing-subscriber | Structured request and application logs |
 | Time/IDs | chrono, UUID | UTC timestamps and source-independent IDs |
 | Migration | sqlx (PostgreSQL), clap | Legacy reader and command-line tools |
-| UI | Static HTML, CSS, JavaScript | Interview dashboard and manual CRUD workflow |
+| UI | Static HTML, CSS, JavaScript | All-activity dashboard and type-specific manual entry |
 | Packaging | Cargo, Docker, Docker Compose | Reproducible builds and local stack |
 | CI | GitHub Actions | Format, Clippy, tests, and locked release build |
 

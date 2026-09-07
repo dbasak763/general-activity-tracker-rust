@@ -23,3 +23,11 @@ th, td { border-bottom: 1px solid #e4ece9; padding: 12px 10px; text-align: left;
 th { color: #647771; font-size: .8rem; text-transform: uppercase; }
 .danger { color: #a33535; background: transparent; border-color: #d8b1b1; padding: 6px 9px; }
 @media (max-width: 760px) { form { grid-template-columns: 1fr; } .wide { grid-column: auto; } .toolbar { align-items: stretch; flex-direction: column; } }
+
+[hidden] { display: none !important; }
+fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; border: 1px solid #dce8e3; border-radius: 12px; padding: 20px; }
+legend { font-weight: 750; padding: 0 8px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 650px; max-height: 350px; overflow: auto; font-size: .8rem; }
+summary { cursor: pointer; margin-top: 8px; }
+button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 760px) { fieldset { grid-template-columns: 1fr; } }

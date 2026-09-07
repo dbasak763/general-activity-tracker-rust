@@ -1,0 +1,166 @@
+[
+  {
+    "userId": "test-user",
+    "type": "leet_code",
+    "title": "Leet Code",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "leet_code",
+      "problem": "Two Sum",
+      "difficulty": "easy",
+      "accepted": true
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "codeforces",
+    "title": "Codeforces",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "codeforces",
+      "contestId": "2000",
+      "problemIndex": "A",
+      "verdict": "OK"
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "logic_puzzle",
+    "title": "Logic Puzzle",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "logic_puzzle",
+      "source": "Practice book",
+      "solved": true,
+      "attempts": 1
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "ai_ml_topic",
+    "title": "Ai Ml Topic",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "ai_ml_topic",
+      "topic": "Attention",
+      "masteryPercent": 80
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "research_paper",
+    "title": "Research Paper",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "research_paper",
+      "paperTitle": "Attention Is All You Need",
+      "pagesRead": 8
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "model_experiment",
+    "title": "Model Experiment",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "model_experiment",
+      "experimentName": "Baseline",
+      "modelName": "Logistic regression",
+      "metrics": {
+        "accuracy": 0.89
+      },
+      "parameters": {
+        "seed": 42
+      }
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "project_milestone",
+    "title": "Project Milestone",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "project_milestone",
+      "milestone": "Ship tracker",
+      "completionPercent": 100
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "job_application",
+    "title": "Job Application",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "job_application",
+      "company": "Example Co",
+      "role": "Engineer",
+      "stage": "applied"
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "networking_interaction",
+    "title": "Networking Interaction",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "networking_interaction",
+      "personName": "Example Contact",
+      "interactionType": "meeting",
+      "followUpAt": {
+        "$date": "2026-09-08T12:00:00Z"
+      }
+    }
+  },
+  {
+    "userId": "test-user",
+    "type": "interview",
+    "title": "Interview",
+    "status": "completed",
+    "score": 85,
+    "startedAt": {
+      "$date": "2026-09-07T12:00:00Z"
+    },
+    "details": {
+      "kind": "interview",
+      "topic": "System Design",
+      "attemptedDate": "2026-09-07",
+      "attemptSource": "manual"
+    }
+  }
+]

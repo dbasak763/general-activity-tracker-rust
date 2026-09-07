@@ -54,3 +54,16 @@ cargo run --locked --bin import-interviewstack -- \
 Run it twice. The first report should insert 68, the second should skip 68, and
 both write runs should report `failed: 0`, `verifiedCount: 68`, and three
 verified representative samples.
+
+
+## All-activity verification
+
+The Rust route suite loads `examples/activity-attempts.json` and exercises all ten
+variants, including timestamp serialization, successful create/read/delete, and
+rejection when `type` and `details.kind` disagree. The OpenAPI test checks that
+all ten detail alternatives and manual-entry examples are exposed.
+
+On September 7, 2026, live checks against MongoDB verified create, read, per-type
+and user filtering, full replacement, counts, and deletion for all ten variants.
+Only uniquely identified synthetic records were removed afterward. The updated
+dashboard was checked in the in-app browser and also confirmed working by the user.

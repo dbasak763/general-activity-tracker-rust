@@ -48,17 +48,19 @@ pub struct AppState {
         latest_attempt,
         get_attempt,
         update_attempt,
-        delete_attempt
+        delete_attempt,
+        create_activity, list_activities, count_activities, get_activity, replace_activity, delete_activity
     ),
     components(schemas(AttemptCreate, AttemptResponse, CountResponse, HealthResponse, ErrorBody)),
     tags(
+        (name = "Activities", description = "All ten activity types with type-specific details. Timestamps use MongoDB Extended JSON: {\"$date\":\"2026-09-07T12:00:00Z\"}."),
         (name = "Health", description = "Process and MongoDB dependency health"),
         (name = "Interview attempts", description = "FastAPI-compatible interview attempt operations")
     ),
     info(
         title = "General Activity Tracker in Rust",
         version = "0.1.0",
-        description = "Interview attempt CRUD backed by MongoDB. Use POST /api/attempts from Swagger UI for manual score entry."
+        description = "Record all ten activity types with POST /api/activities. Choose the matching type and details.kind schema. Legacy interview entry remains available at POST /api/attempts."
     )
 )]
 pub struct ApiDoc;
@@ -190,6 +192,204 @@ async fn database_health(State(state): State<AppState>) -> Result<Json<HealthRes
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/activities",
+    tag = "Activities",
+    request_body(
+        content = ActivityInput,
+        examples(
+            ("leet_code" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "leet_code",
+                    "title": "Leet Code",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "leet_code",
+                        "problem": "Two Sum",
+                        "difficulty": "easy",
+                        "accepted": true
+                    }
+                }
+            ))),
+            ("codeforces" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "codeforces",
+                    "title": "Codeforces",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "codeforces",
+                        "contestId": "2000",
+                        "problemIndex": "A",
+                        "verdict": "OK"
+                    }
+                }
+            ))),
+            ("logic_puzzle" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "logic_puzzle",
+                    "title": "Logic Puzzle",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "logic_puzzle",
+                        "source": "Practice book",
+                        "solved": true,
+                        "attempts": 1
+                    }
+                }
+            ))),
+            ("ai_ml_topic" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "ai_ml_topic",
+                    "title": "Ai Ml Topic",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "ai_ml_topic",
+                        "topic": "Attention",
+                        "masteryPercent": 80
+                    }
+                }
+            ))),
+            ("research_paper" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "research_paper",
+                    "title": "Research Paper",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "research_paper",
+                        "paperTitle": "Attention Is All You Need",
+                        "pagesRead": 8
+                    }
+                }
+            ))),
+            ("model_experiment" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "model_experiment",
+                    "title": "Model Experiment",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "model_experiment",
+                        "experimentName": "Baseline",
+                        "modelName": "Logistic regression",
+                        "metrics": {
+                            "accuracy": 0.89
+                        },
+                        "parameters": {
+                            "seed": 42
+                        }
+                    }
+                }
+            ))),
+            ("project_milestone" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "project_milestone",
+                    "title": "Project Milestone",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "project_milestone",
+                        "milestone": "Ship tracker",
+                        "completionPercent": 100
+                    }
+                }
+            ))),
+            ("job_application" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "job_application",
+                    "title": "Job Application",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "job_application",
+                        "company": "Example Co",
+                        "role": "Engineer",
+                        "stage": "applied"
+                    }
+                }
+            ))),
+            ("networking_interaction" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "networking_interaction",
+                    "title": "Networking Interaction",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "networking_interaction",
+                        "personName": "Example Contact",
+                        "interactionType": "meeting",
+                        "followUpAt": {
+                            "$date": "2026-09-08T12:00:00Z"
+                        }
+                    }
+                }
+            ))),
+            ("interview" = (value = json!(
+                {
+                    "userId": "test-user",
+                    "type": "interview",
+                    "title": "Interview",
+                    "status": "completed",
+                    "score": 85,
+                    "startedAt": {
+                        "$date": "2026-09-07T12:00:00Z"
+                    },
+                    "details": {
+                        "kind": "interview",
+                        "topic": "System Design",
+                        "attemptedDate": "2026-09-07",
+                        "attemptSource": "manual"
+                    }
+                }
+            )))
+        )
+    ),
+    responses(
+        (status = 201, description = "Activity persisted in MongoDB", body = Activity),
+        (status = 422, description = "Invalid activity", body = ErrorBody)
+    )
+)]
 async fn create_activity(
     State(state): State<AppState>,
     Json(input): Json<ActivityInput>,
@@ -201,6 +401,7 @@ async fn create_activity(
     ))
 }
 
+#[utoipa::path(get, path = "/api/activities", tag = "Activities", params(ActivityFilter), responses((status = 200, description = "Activity operation succeeded", body = [Activity]), (status = 422, description = "Invalid activity", body = ErrorBody)))]
 async fn list_activities(
     State(state): State<AppState>,
     Query(filter): Query<ActivityFilter>,
@@ -213,6 +414,7 @@ async fn list_activities(
 pub struct CountResponse {
     count: u64,
 }
+#[utoipa::path(get, path = "/api/activities/count", tag = "Activities", params(ActivityFilter), responses((status = 200, description = "Activity operation succeeded", body = CountResponse), (status = 422, description = "Invalid activity", body = ErrorBody)))]
 async fn count_activities(
     State(state): State<AppState>,
     Query(mut filter): Query<ActivityFilter>,
@@ -224,6 +426,7 @@ async fn count_activities(
     }))
 }
 
+#[utoipa::path(get, path = "/api/activities/{id}", tag = "Activities", params(("id" = String, Path, description = "Activity UUID")), responses((status = 200, description = "Activity operation succeeded", body = Activity), (status = 422, description = "Invalid activity", body = ErrorBody)))]
 async fn get_activity(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -236,6 +439,7 @@ async fn get_activity(
         .ok_or_else(|| AppError::NotFound("Activity not found".to_owned()))
 }
 
+#[utoipa::path(put, path = "/api/activities/{id}", tag = "Activities", request_body = ActivityInput, params(("id" = String, Path, description = "Activity UUID")), responses((status = 200, description = "Activity operation succeeded", body = Activity), (status = 422, description = "Invalid activity", body = ErrorBody)))]
 async fn replace_activity(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -250,6 +454,7 @@ async fn replace_activity(
         .ok_or_else(|| AppError::NotFound("Activity not found".to_owned()))
 }
 
+#[utoipa::path(delete, path = "/api/activities/{id}", tag = "Activities", params(("id" = String, Path, description = "Activity UUID")), responses((status = 204, description = "Activity operation succeeded"), (status = 422, description = "Invalid activity", body = ErrorBody)))]
 async fn delete_activity(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -1133,6 +1338,15 @@ mod tests {
         );
         assert!(document["paths"]["/health/ready"].is_object());
         assert!(document["components"]["schemas"]["AttemptCreate"].is_object());
+        assert!(document["paths"]["/api/activities"]["post"]["requestBody"].is_object());
+        assert_eq!(document["paths"]["/api/activities"]["post"]["requestBody"]["content"]["application/json"]["examples"].as_object().unwrap().len(), 10);
+        assert_eq!(
+            document["components"]["schemas"]["ActivityDetails"]["oneOf"]
+                .as_array()
+                .unwrap()
+                .len(),
+            10
+        );
         let docs = router
             .oneshot(
                 Request::builder()
@@ -1151,6 +1365,86 @@ mod tests {
         )
         .unwrap();
         assert!(html.contains("Swagger UI"));
+    }
+
+    #[tokio::test]
+    async fn every_activity_example_round_trips_and_rejects_mismatched_details() {
+        let examples: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../examples/activity-attempts.json")).unwrap();
+        assert_eq!(examples.len(), 10);
+        for mut payload in examples {
+            let router = app(
+                AppState {
+                    repository: Arc::new(MemoryRepository::default()),
+                    database_name: "test".into(),
+                },
+                &[],
+            )
+            .unwrap();
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/activities")
+                        .header("content-type", "application/json")
+                        .body(Body::from(payload.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::CREATED,
+                "{}",
+                payload["type"]
+            );
+            let saved: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap())
+                    .unwrap();
+            assert_eq!(saved["details"]["kind"], payload["type"]);
+            assert_eq!(saved["score"], 85.0);
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/activities/test")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            payload["type"] = serde_json::json!(if payload["type"] == "interview" {
+                "leet_code"
+            } else {
+                "interview"
+            });
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/activities")
+                        .header("content-type", "application/json")
+                        .body(Body::from(payload.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+            let response = router
+                .oneshot(
+                    Request::builder()
+                        .method("DELETE")
+                        .uri("/api/activities/test")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        }
     }
 
     #[test]
@@ -1175,7 +1469,8 @@ mod tests {
         assert!(script.contains("/api/attempts"));
         assert!(script.contains("method: \"POST\""));
         assert!(script.contains("method: \"DELETE\""));
-        assert!(script.contains("query.set(\"topic\""));
+        assert!(script.contains("query.set(\"type\""));
+        assert!(script.contains("/api/activities"));
         assert!(script.contains("Saved and persisted in MongoDB."));
         assert!(script.contains("catch (error)"));
     }

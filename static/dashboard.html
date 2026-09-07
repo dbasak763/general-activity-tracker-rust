@@ -3,18 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Interview Activity Tracker</title>
+  <title>General Activity Tracker</title>
   <link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
   <main>
     <header>
       <p class="eyebrow">General Activity Tracker in Rust</p>
-      <h1>Interview attempts</h1>
+      <h1>Activity tracker</h1>
+      <p>Track coding, learning, research, projects, career progress, and interviews.</p>
+      <a href="/docs/">API schemas and manual JSON entry ↗</a>
       <p id="health" class="muted">Checking MongoDB…</p>
     </header>
 
     <section class="panel">
+      <label>Activity type <select id="activity-type"><option value="interview">Interview</option></select></label>
+    </section>
+    <section class="panel" id="interview-panel">
       <h2>Record an attempt</h2>
       <form id="attempt-form">
         <label>Date <input name="attemptedDate" type="date" required></label>
@@ -41,20 +46,47 @@
       </form>
     </section>
 
+    <section class="panel" id="activity-panel" hidden>
+      <h2 id="activity-heading">Record an activity</h2>
+      <form id="activity-form">
+        <label>Title <input name="title" maxlength="300" required></label>
+        <label>User ID <input name="userId" value="default" maxlength="120" required></label>
+        <label>Status <select name="status"><option value="completed">Completed</option><option value="in_progress">In progress</option><option value="planned">Planned</option><option value="incomplete">Incomplete</option><option value="skipped">Skipped</option><option value="invalidated">Invalidated</option></select></label>
+        <label>Priority <select name="priority"><option>medium</option><option>low</option><option>high</option><option>critical</option></select></label>
+        <label>Score (0–100, optional) <input name="score" type="number" min="0" max="100" step="any"></label>
+        <label>Rating (0–5, optional) <input name="rating" type="number" min="0" max="5" step="any"></label>
+        <label>Planned <input name="plannedAt" type="datetime-local"></label>
+        <label>Started <input name="startedAt" type="datetime-local"></label>
+        <label>Completed <input name="completedAt" type="datetime-local"></label>
+        <label>Time spent (minutes) <input name="durationMinutes" type="number" min="0" step="1"></label>
+        <label>Category <input name="category" maxlength="120"></label>
+        <label>Source URL <input name="sourceUrl" type="url"></label>
+        <label class="wide">Tags (comma separated) <input name="tags"></label>
+        <fieldset id="activity-details" class="wide"></fieldset>
+        <label class="wide">Description <textarea name="description" maxlength="10000"></textarea></label>
+        <label class="wide">Notes <textarea name="notes"></textarea></label>
+        <label class="wide">Feedback <textarea name="feedback"></textarea></label>
+        <label class="wide">Additional metadata (JSON object: attempts, deadlines, blockers, hypotheses, etc.) <textarea name="metadata" rows="3">{}</textarea></label>
+        <details class="wide"><summary>Preview JSON request</summary><pre id="payload-preview"></pre></details>
+        <button type="submit">Save activity</button>
+        <p id="activity-status" role="status"></p>
+      </form>
+    </section>
     <section class="panel">
       <div class="toolbar">
         <div><h2>Timeline</h2><p id="summary" class="muted"></p></div>
-        <label>Topic <select id="topic-filter"><option value="">All topics</option></select></label>
+        <label>Activity type <select id="type-filter"><option value="">All activities</option><option value="interview">Interview</option></select></label>
         <button id="refresh" type="button">Refresh</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Topic</th><th>Company / role</th><th>Status</th><th>Score</th><th>Notes</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Activity type</th><th>Title / details</th><th>Status</th><th>Score</th><th>Notes</th><th></th></tr></thead>
           <tbody id="attempt-rows"></tbody>
         </table>
       </div>
     </section>
   </main>
+  <script src="/static/activity-types.js"></script>
   <script src="/static/dashboard.js" defer></script>
 </body>
 </html>
