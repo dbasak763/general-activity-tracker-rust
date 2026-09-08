@@ -17,6 +17,16 @@ if ! nc -z 127.0.0.1 27018 2>/dev/null; then
     --logpath "$mongo_log"
 fi
 
+# Rebuild from the current checkout so restarting never serves stale dashboard assets.
+docker build --tag "$image_name" .
+if docker container inspect "$container_name" >/dev/null 2>&1; then
+  existing_image=$(docker inspect --format '{{.Image}}' "$container_name")
+  current_image=$(docker image inspect --format '{{.Id}}' "$image_name")
+  if [ "$existing_image" != "$current_image" ]; then
+    docker rm --force "$container_name" >/dev/null
+  fi
+fi
+
 if docker container inspect "$container_name" >/dev/null 2>&1; then
   docker start "$container_name" >/dev/null
 else

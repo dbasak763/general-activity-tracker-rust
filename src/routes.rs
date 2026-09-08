@@ -27,6 +27,7 @@ use crate::{
         Activity, ActivityDetails, ActivityFilter, ActivityInput, ActivityStatus, AttemptFilter,
         AttemptSource, InterviewDetails, LegacyAttemptStatus, Priority,
     },
+    relationships::{delete_relationship, list_relationships, save_relationship},
     repository::ActivityRepository,
 };
 
@@ -49,10 +50,12 @@ pub struct AppState {
         get_attempt,
         update_attempt,
         delete_attempt,
-        create_activity, list_activities, count_activities, get_activity, replace_activity, delete_activity
+        create_activity, list_activities, count_activities, get_activity, replace_activity, delete_activity,
+        crate::relationships::save_relationship, crate::relationships::list_relationships, crate::relationships::delete_relationship
     ),
     components(schemas(AttemptCreate, AttemptResponse, CountResponse, HealthResponse, ErrorBody)),
     tags(
+        (name = "Relationships", description = "Explicit links confirmed by the user"),
         (name = "Activities", description = "All ten activity types with type-specific details. Timestamps use MongoDB Extended JSON: {\"$date\":\"2026-09-07T12:00:00Z\"}."),
         (name = "Health", description = "Process and MongoDB dependency health"),
         (name = "Interview attempts", description = "FastAPI-compatible interview attempt operations")
@@ -98,6 +101,14 @@ pub fn app(state: AppState, allowed_origins: &[String]) -> Result<Router, AppErr
             post(create_activity).get(list_activities),
         )
         .route("/api/activities/count", get(count_activities))
+        .route(
+            "/api/relationships",
+            get(list_relationships).post(save_relationship),
+        )
+        .route(
+            "/api/relationships/{id}",
+            axum::routing::delete(delete_relationship),
+        )
         .route(
             "/api/activities/{id}",
             get(get_activity)

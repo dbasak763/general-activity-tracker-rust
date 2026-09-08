@@ -10,10 +10,28 @@ use mongodb::{
 use crate::{
     error::AppError,
     model::{Activity, ActivityFilter, ActivityInput, AttemptFilter},
+    relationships::Relationship,
 };
 
 #[async_trait]
 pub trait ActivityRepository: Send + Sync {
+    async fn save_relationship(
+        &self,
+        _relationship: Relationship,
+    ) -> Result<Relationship, AppError> {
+        Err(AppError::Unavailable(
+            "Relationship storage is not configured".into(),
+        ))
+    }
+    async fn list_relationships(
+        &self,
+        _activity_id: Option<&str>,
+    ) -> Result<Vec<Relationship>, AppError> {
+        Ok(Vec::new())
+    }
+    async fn delete_relationship(&self, _id: &str) -> Result<bool, AppError> {
+        Ok(false)
+    }
     async fn ping(&self) -> Result<(), AppError>;
     async fn ensure_indexes(&self) -> Result<(), AppError>;
     async fn create(
@@ -40,6 +58,7 @@ pub struct MongoActivityRepository {
     database: Database,
     activities: Collection<Activity>,
     counters: Collection<Document>,
+    relationships: Collection<Relationship>,
 }
 
 impl MongoActivityRepository {
@@ -49,6 +68,7 @@ impl MongoActivityRepository {
         Ok(Self {
             activities: database.collection("activities"),
             counters: database.collection("counters"),
+            relationships: database.collection("relationships"),
             database,
         })
     }
@@ -162,12 +182,54 @@ fn add_naive_date_window(
 
 #[async_trait]
 impl ActivityRepository for MongoActivityRepository {
+    async fn save_relationship(
+        &self,
+        relationship: Relationship,
+    ) -> Result<Relationship, AppError> {
+        // Stable IDs make repeated confirmation idempotent.
+        self.relationships
+            .replace_one(doc! { "_id": &relationship.id }, &relationship)
+            .upsert(true)
+            .await?;
+        Ok(relationship)
+    }
+
+    async fn list_relationships(
+        &self,
+        activity_id: Option<&str>,
+    ) -> Result<Vec<Relationship>, AppError> {
+        let filter = activity_id
+            .map(|id| doc! { "$or": [{ "sourceId": id }, { "targetId": id }] })
+            .unwrap_or_default();
+        Ok(self
+            .relationships
+            .find(filter)
+            .sort(doc! { "createdAt": -1, "_id": 1 })
+            .limit(2000)
+            .await?
+            .try_collect()
+            .await?)
+    }
+
+    async fn delete_relationship(&self, id: &str) -> Result<bool, AppError> {
+        Ok(self
+            .relationships
+            .delete_one(doc! { "_id": id })
+            .await?
+            .deleted_count
+            == 1)
+    }
     async fn ping(&self) -> Result<(), AppError> {
         self.database.run_command(doc! { "ping": 1 }).await?;
         Ok(())
     }
 
     async fn ensure_indexes(&self) -> Result<(), AppError> {
+        for field in ["sourceId", "targetId"] {
+            self.relationships
+                .create_index(IndexModel::builder().keys(doc! { field: 1 }).build())
+                .await?;
+        }
         let indexes = vec![
             IndexModel::builder().keys(doc! { "userId": 1, "startedAt": -1 }).build(),
             IndexModel::builder().keys(doc! { "userId": 1, "type": 1, "startedAt": -1 }).build(),
@@ -272,6 +334,9 @@ impl ActivityRepository for MongoActivityRepository {
     }
 
     async fn delete(&self, id: &str) -> Result<bool, AppError> {
+        self.relationships
+            .delete_many(doc! { "$or": [{ "sourceId": id }, { "targetId": id }] })
+            .await?;
         Ok(self
             .activities
             .delete_one(doc! { "_id": id })
