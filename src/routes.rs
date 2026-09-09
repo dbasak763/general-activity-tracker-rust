@@ -22,6 +22,7 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
+    chat::{ChatGateway, ChatRequest, ChatResponse, chat, chat_config},
     error::{AppError, ErrorBody},
     model::{
         Activity, ActivityDetails, ActivityFilter, ActivityInput, ActivityStatus, AttemptFilter,
@@ -35,6 +36,22 @@ use crate::{
 pub struct AppState {
     pub repository: Arc<dyn ActivityRepository>,
     pub database_name: String,
+    pub chat: ChatGateway,
+}
+
+impl AppState {
+    pub fn new(repository: Arc<dyn ActivityRepository>, database_name: String) -> Self {
+        Self {
+            repository,
+            database_name,
+            chat: ChatGateway::disabled(),
+        }
+    }
+
+    pub fn with_chat(mut self, chat: ChatGateway) -> Self {
+        self.chat = chat;
+        self
+    }
 }
 
 #[derive(OpenApi)]
@@ -51,11 +68,13 @@ pub struct AppState {
         update_attempt,
         delete_attempt,
         create_activity, list_activities, count_activities, get_activity, replace_activity, delete_activity,
-        crate::relationships::save_relationship, crate::relationships::list_relationships, crate::relationships::delete_relationship
+        crate::relationships::save_relationship, crate::relationships::list_relationships, crate::relationships::delete_relationship,
+        crate::chat::chat_config, crate::chat::chat
     ),
-    components(schemas(AttemptCreate, AttemptResponse, CountResponse, HealthResponse, ErrorBody)),
+    components(schemas(AttemptCreate, AttemptResponse, CountResponse, HealthResponse, ErrorBody, ChatRequest, ChatResponse)),
     tags(
         (name = "Relationships", description = "Explicit links confirmed by the user"),
+        (name = "Activity chat", description = "Evidence-backed questions across all activity types"),
         (name = "Activities", description = "All ten activity types with type-specific details. Timestamps use MongoDB Extended JSON: {\"$date\":\"2026-09-07T12:00:00Z\"}."),
         (name = "Health", description = "Process and MongoDB dependency health"),
         (name = "Interview attempts", description = "FastAPI-compatible interview attempt operations")
@@ -1064,42 +1083,6 @@ async fn topic_score_progression(
     }))
 }
 
-async fn chat_config() -> Json<serde_json::Value> {
-    Json(
-        serde_json::json!({"availableProviders": [], "routes": {"lookup":{"provider":"fallback"},"analysis":{"provider":"fallback"},"visualization":{"provider":"fallback"}}}),
-    )
-}
-
-#[derive(Deserialize)]
-struct ChatRequest {
-    message: String,
-    #[serde(default)]
-    topic: Option<String>,
-}
-async fn chat(
-    State(state): State<AppState>,
-    Json(payload): Json<ChatRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    if payload.message.trim().is_empty() {
-        return Err(AppError::validation("message cannot be empty"));
-    }
-    let count = state
-        .repository
-        .count_attempts(&AttemptFilter {
-            topic: payload.topic.clone(),
-            limit: 100,
-            ..Default::default()
-        })
-        .await?;
-    let scope = payload
-        .topic
-        .map(|t| format!(" for {t}"))
-        .unwrap_or_default();
-    Ok(Json(
-        serde_json::json!({"reply": format!("I found {count} interview attempts{scope}."), "provider":"database", "model":null, "route":"lookup", "operations":["count_attempts"], "visualization":null}),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1222,10 +1205,7 @@ mod tests {
     #[tokio::test]
     async fn creates_legacy_attempt_with_compatible_response() {
         let router = app(
-            AppState {
-                repository: Arc::new(MemoryRepository::default()),
-                database_name: "test".to_owned(),
-            },
+            AppState::new(Arc::new(MemoryRepository::default()), "test".to_owned()),
             &[],
         )
         .unwrap();
@@ -1256,10 +1236,7 @@ mod tests {
     #[tokio::test]
     async fn readiness_checks_repository() {
         let router = app(
-            AppState {
-                repository: Arc::new(MemoryRepository::default()),
-                database_name: "test".to_owned(),
-            },
+            AppState::new(Arc::new(MemoryRepository::default()), "test".to_owned()),
             &[],
         )
         .unwrap();
@@ -1276,16 +1253,50 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_can_explicitly_clear_nullable_fields() {
-        let repository = Arc::new(MemoryRepository::default());
+    async fn chat_validates_input_and_falls_back_to_database() {
         let router = app(
-            AppState {
-                repository,
-                database_name: "test".to_owned(),
-            },
+            AppState::new(Arc::new(MemoryRepository::default()), "test".to_owned()),
             &[],
         )
         .unwrap();
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/dashboard/chat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"message":"Show my progress"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap())
+                .unwrap();
+        assert_eq!(body["provider"], "database");
+        assert_eq!(body["coverage"]["total"], 0);
+        assert_eq!(body["route"], "analysis");
+
+        let invalid = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/dashboard/chat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"message":" "}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn update_can_explicitly_clear_nullable_fields() {
+        let repository = Arc::new(MemoryRepository::default());
+        let router = app(AppState::new(repository, "test".to_owned()), &[]).unwrap();
         let create = serde_json::json!({"attemptedDate":"2026-09-01","topic":"System Design","company":"Example Co","score":80,"status":"complete","startedAt":"2026-09-01T12:00:00Z"});
         let created = router
             .clone()
@@ -1321,10 +1332,7 @@ mod tests {
     #[tokio::test]
     async fn openapi_documents_manual_attempt_and_health_routes() {
         let router = app(
-            AppState {
-                repository: Arc::new(MemoryRepository::default()),
-                database_name: "test".to_owned(),
-            },
+            AppState::new(Arc::new(MemoryRepository::default()), "test".to_owned()),
             &[],
         )
         .unwrap();
@@ -1350,6 +1358,8 @@ mod tests {
         assert!(document["paths"]["/health/ready"].is_object());
         assert!(document["components"]["schemas"]["AttemptCreate"].is_object());
         assert!(document["paths"]["/api/activities"]["post"]["requestBody"].is_object());
+        assert!(document["paths"]["/api/dashboard/chat"]["post"].is_object());
+        assert!(document["components"]["schemas"]["ChatRequest"].is_object());
         assert_eq!(document["paths"]["/api/activities"]["post"]["requestBody"]["content"]["application/json"]["examples"].as_object().unwrap().len(), 10);
         assert_eq!(
             document["components"]["schemas"]["ActivityDetails"]["oneOf"]
@@ -1385,10 +1395,7 @@ mod tests {
         assert_eq!(examples.len(), 10);
         for mut payload in examples {
             let router = app(
-                AppState {
-                    repository: Arc::new(MemoryRepository::default()),
-                    database_name: "test".into(),
-                },
+                AppState::new(Arc::new(MemoryRepository::default()), "test".into()),
                 &[],
             )
             .unwrap();

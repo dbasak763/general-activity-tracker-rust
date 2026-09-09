@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use activity_tracker::{ActivityRepository, AppState, Config, MongoActivityRepository, app};
+use activity_tracker::{
+    ActivityRepository, AppState, ChatGateway, Config, MongoActivityRepository, app,
+};
 use tokio::net::TcpListener;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
@@ -12,11 +14,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         MongoActivityRepository::connect(&config.mongodb_uri, &config.mongodb_database).await?;
     repository.ping().await?;
     repository.ensure_indexes().await?;
+    let chat = ChatGateway::new(
+        config.chat_service_url.as_deref(),
+        &config.chat_internal_token,
+        config.chat_max_activities,
+        config.chat_timeout_seconds,
+    )?;
     let router = app(
-        AppState {
-            repository: Arc::new(repository),
-            database_name: config.mongodb_database.clone(),
-        },
+        AppState::new(Arc::new(repository), config.mongodb_database.clone()).with_chat(chat),
         &config.cors_allowed_origins,
     )?;
     let listener = TcpListener::bind(config.socket_addr()?).await?;

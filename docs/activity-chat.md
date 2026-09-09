@@ -83,3 +83,24 @@ Primary implementation references: [LangGraph workflows](https://docs.langchain.
 [Ollama compatibility](https://docs.ollama.com/api/openai-compatibility),
 [Groq tool calling](https://console.groq.com/docs/tool-use/local-tool-calling),
 [Neo4j parameterized queries](https://neo4j.com/docs/python-manual/current/query-simple/).
+
+## Component 3: Rust chat boundary
+
+The browser calls only `POST /api/dashboard/chat`. Rust validates the question and
+up to ten history messages, reads up to `CHAT_MAX_ACTIVITIES` records from MongoDB,
+loads confirmed relationships, and sends that snapshot to the internal worker.
+`CHAT_INTERNAL_TOKEN` and model credentials are never accepted from or returned to
+the browser. Requests are bounded by `CHAT_TIMEOUT_SECONDS`, worker responses have
+a one MiB size limit, and response fields and collection sizes are checked before
+they reach the UI.
+
+`GET /api/dashboard/chat/config` reports the worker's provider routes without
+exposing secrets. When the worker cannot be reached, the public endpoint remains
+usable and returns a clearly labelled database-only count by activity type. A
+partial snapshot includes explicit coverage metadata instead of implying that the
+answer includes unseen history.
+
+With the full stack running, `python3 scripts/test-chat-endpoint.py` creates two
+synthetic activities and a confirmed link through Rust, asks a cross-activity
+question through the public endpoint, verifies model citations and graph paths,
+and removes its test records.
