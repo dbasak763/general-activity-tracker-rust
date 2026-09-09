@@ -8,6 +8,17 @@ permissions:
   contents: read
 
 jobs:
+  ai:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ai_service/requirements.txt
+      - run: pip install -r ai_service/requirements.txt
+      - run: python -m unittest ai_service.test_workflow -v
   rust:
     runs-on: ubuntu-latest
     steps:
